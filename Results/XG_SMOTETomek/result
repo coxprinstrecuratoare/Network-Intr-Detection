@@ -1,0 +1,28 @@
+loading data...
+applying SMOTETomek (takes a few minutes)...
+class distribution after SMOTETomek:
+  DoS: 67333
+  Normal: 67268
+  Probe: 67318
+  R2L: 67289
+  U2R: 67327
+
+training model...
+
+--- results ---
+              precision    recall  f1-score   support
+
+         DoS       0.96      0.83      0.89      7460
+      Normal       0.70      0.97      0.82      9711
+       Probe       0.87      0.80      0.84      2421
+         R2L       0.99      0.16      0.27      2885
+         U2R       0.68      0.31      0.43        67
+
+    accuracy                           0.80     22544
+   macro avg       0.84      0.61      0.65     22544
+weighted avg       0.84      0.80      0.77     22544
+
+macro f1: 0.6485
+experiment 1 (baseline xgboost):  0.5599
+experiment 2 (smote):             0.6273
+experiment 3 (smotetomek):        0.6485
