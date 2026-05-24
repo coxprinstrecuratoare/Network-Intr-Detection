@@ -1,0 +1,32 @@
+loading data...
+applying SMOTE...
+class distribution after SMOTE:
+  DoS: 67343
+  Normal: 67343
+  Probe: 67343
+  R2L: 67343
+  U2R: 67343
+
+training LightGBM model...
+
+--- results ---
+              precision    recall  f1-score   support
+
+         DoS       0.96      0.80      0.87      7460
+      Normal       0.67      0.97      0.80      9711
+       Probe       0.87      0.71      0.78      2421
+         R2L       0.98      0.12      0.22      2885
+         U2R       0.75      0.22      0.34        67
+
+    accuracy                           0.78     22544
+   macro avg       0.85      0.57      0.60     22544
+weighted avg       0.83      0.78      0.74     22544
+
+macro f1: 0.6034
+experiment 1 (xgboost baseline):        0.5599
+experiment 2 (xgboost + smote):         0.6273
+experiment 3 (xgboost + smotetomek):    0.6485
+experiment 4 (xgboost + thresholds):    0.6780
+experiment 5 (lightgbm + smote):        0.6034
+
+done - saved as exp5_confusion_matrix.png
