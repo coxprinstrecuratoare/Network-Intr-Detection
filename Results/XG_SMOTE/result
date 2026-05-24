@@ -1,0 +1,29 @@
+loading data...
+applying SMOTE...
+class distribution after SMOTE:
+  DoS: 67343
+  Normal: 67343
+  Probe: 67343
+  R2L: 67343
+  U2R: 67343
+
+training model...
+
+--- results ---
+              precision    recall  f1-score   support
+
+         DoS       0.96      0.81      0.88      7460
+      Normal       0.69      0.97      0.81      9711
+       Probe       0.86      0.79      0.82      2421
+         R2L       0.99      0.16      0.27      2885
+         U2R       0.61      0.25      0.36        67
+
+    accuracy                           0.79     22544
+   macro avg       0.82      0.59      0.63     22544
+weighted avg       0.84      0.79      0.76     22544
+
+macro f1: 0.6273
+experiment 1 was: 0.5599
+difference: +0.0674
+
+done - saved as exp2_confusion_matrix.png
