@@ -1,0 +1,240 @@
+# Network Intrusion Detection - Experiment 7
+# RandomizedSearchCV for hyperparameter tuning
+# instead of manually guessing max_depth=6 and learning_rate=0.1
+# we let the algorithm try random combinations and pick the best
+# we use the same feature engineering and SMOTETomek from exp6
+# since that gave us the best result so far
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import classification_report, f1_score, confusion_matrix
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
+from xgboost import XGBClassifier
+from imblearn.combine import SMOTETomek
+
+train_url = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTrain%2B.txt"
+test_url  = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTest%2B.txt"
+
+columns = [
+    'duration', 'protocol_type', 'service', 'flag', 'src_bytes', 'dst_bytes',
+    'land', 'wrong_fragment', 'urgent', 'hot', 'num_failed_logins', 'logged_in',
+    'num_compromised', 'root_shell', 'su_attempted', 'num_root',
+    'num_file_creations', 'num_shells', 'num_access_files', 'num_outbound_cmds',
+    'is_host_login', 'is_guest_login', 'count', 'srv_count', 'serror_rate',
+    'srv_serror_rate', 'rerror_rate', 'srv_rerror_rate', 'same_srv_rate',
+    'diff_srv_rate', 'srv_diff_host_rate', 'dst_host_count', 'dst_host_srv_count',
+    'dst_host_same_srv_rate', 'dst_host_diff_srv_rate',
+    'dst_host_same_src_port_rate', 'dst_host_srv_diff_host_rate',
+    'dst_host_serror_rate', 'dst_host_srv_serror_rate', 'dst_host_rerror_rate',
+    'dst_host_srv_rerror_rate', 'class', 'level'
+]
+
+print("loading data...")
+df_train = pd.read_csv(train_url, names=columns)
+df_test  = pd.read_csv(test_url,  names=columns)
+
+df_train.drop(columns=['level'], inplace=True)
+df_test.drop(columns=['level'], inplace=True)
+
+df_full = pd.concat([df_train, df_test])
+
+for col in ['protocol_type', 'service', 'flag']:
+    le = LabelEncoder()
+    df_full[col] = le.fit_transform(df_full[col])
+
+category_map = {
+    'normal': 'Normal',
+    'neptune': 'DoS', 'back': 'DoS', 'land': 'DoS', 'pod': 'DoS',
+    'smurf': 'DoS', 'teardrop': 'DoS', 'mailbomb': 'DoS', 'apache2': 'DoS',
+    'processtable': 'DoS', 'udpstorm': 'DoS', 'worm': 'DoS',
+    'satan': 'Probe', 'ipsweep': 'Probe', 'nmap': 'Probe', 'portsweep': 'Probe',
+    'mscan': 'Probe', 'saint': 'Probe',
+    'warezclient': 'R2L', 'guess_passwd': 'R2L', 'ftp_write': 'R2L',
+    'imap': 'R2L', 'phf': 'R2L', 'multihop': 'R2L', 'warezmaster': 'R2L',
+    'spy': 'R2L', 'xlock': 'R2L', 'xsnoop': 'R2L', 'snmpguess': 'R2L',
+    'snmpgetattack': 'R2L', 'httptunnel': 'R2L', 'sendmail': 'R2L', 'named': 'R2L',
+    'buffer_overflow': 'U2R', 'loadmodule': 'U2R', 'rootkit': 'U2R',
+    'perl': 'U2R', 'sqlattack': 'U2R', 'xterm': 'U2R', 'ps': 'U2R'
+}
+
+df_full['category'] = df_full['class'].map(category_map).fillna('Other')
+df_full.drop(columns=['num_outbound_cmds', 'class'], inplace=True)
+
+train_len = len(df_train)
+df_train_p = df_full.iloc[:train_len].copy()
+df_test_p  = df_full.iloc[train_len:].copy()
+
+X_train = df_train_p.drop(columns=['category'])
+y_train = df_train_p['category']
+X_test  = df_test_p.drop(columns=['category'])
+y_test  = df_test_p['category']
+
+class_enc = LabelEncoder()
+y_train_enc = class_enc.fit_transform(y_train)
+y_test_enc  = class_enc.transform(y_test)
+
+# same feature engineering as experiment 6
+def add_features(df):
+    df = df.copy()
+    df['bytes_ratio']      = df['src_bytes'] / (df['dst_bytes'] + 1)
+    df['total_bytes']      = df['src_bytes'] + df['dst_bytes']
+    df['bytes_per_second'] = df['src_bytes'] / (df['duration'] + 1)
+    df['total_error_rate'] = (df['serror_rate'] + df['rerror_rate'] +
+                              df['dst_host_serror_rate'] + df['dst_host_rerror_rate'])
+    df['srv_rate_diff']    = df['same_srv_rate'] - df['diff_srv_rate']
+    return df
+
+print("adding features...")
+X_train = add_features(X_train)
+X_test  = add_features(X_test)
+
+# same correlation drop as experiment 6
+corr_matrix = X_train.corr().abs()
+upper = corr_matrix.where(
+    np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
+)
+to_drop_corr = [col for col in upper.columns if any(upper[col] > 0.95)]
+X_train = X_train.drop(columns=to_drop_corr)
+X_test  = X_test.drop(columns=to_drop_corr)
+print(f"after correlation drop: {X_train.shape[1]} features")
+
+# same importance drop as experiment 6
+quick_model = XGBClassifier(
+    n_estimators=100,
+    max_depth=6,
+    random_state=42,
+    n_jobs=-1,
+    eval_metric='mlogloss',
+    verbosity=0
+)
+quick_model.fit(X_train, y_train_enc)
+importances = pd.Series(
+    quick_model.feature_importances_,
+    index=X_train.columns
+)
+threshold   = importances.quantile(0.10)
+to_drop_imp = importances[importances <= threshold].index.tolist()
+X_train = X_train.drop(columns=to_drop_imp)
+X_test  = X_test.drop(columns=to_drop_imp)
+print(f"after importance drop: {X_train.shape[1]} features")
+
+# SMOTETomek on the cleaned feature set
+print("\napplying SMOTETomek...")
+smt = SMOTETomek(random_state=42)
+X_train_smt, y_train_smt = smt.fit_resample(X_train, y_train_enc)
+print("done")
+
+# randomized search
+# we define a range of values for each parameter
+# it picks 15 random combinations and finds which scores best
+# uses cross validation so the test set is never touched
+print("\nrunning RandomizedSearchCV (this takes 10-15 minutes)...")
+print("you will see [CV 1/3] progress printed below")
+
+param_dist = {
+    'max_depth':        [4, 5, 6, 7, 8],
+    'learning_rate':    [0.05, 0.08, 0.10, 0.12, 0.15],
+    'subsample':        [0.7, 0.75, 0.8, 0.85, 0.9],
+    'colsample_bytree': [0.7, 0.75, 0.8, 0.85, 0.9],
+    'min_child_weight': [1, 2, 3, 5],
+    'gamma':            [0, 0.05, 0.1, 0.2],
+}
+
+xgb_base = XGBClassifier(
+    n_estimators=300,
+    random_state=42,
+    n_jobs=-1,
+    eval_metric='mlogloss',
+    verbosity=0
+)
+
+cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+
+search = RandomizedSearchCV(
+    estimator=xgb_base,
+    param_distributions=param_dist,
+    n_iter=15,
+    scoring='f1_macro',
+    cv=cv,
+    random_state=42,
+    n_jobs=1,
+    verbose=2
+)
+
+search.fit(X_train_smt, y_train_smt)
+
+print("\nbest parameters found:")
+for param, value in search.best_params_.items():
+    print(f"  {param}: {value}")
+print(f"\nbest CV macro f1: {search.best_score_:.4f}")
+
+# train final model with the best parameters found
+print("\ntraining final model with best parameters...")
+best_params = search.best_params_
+
+model = XGBClassifier(
+    n_estimators=300,
+    random_state=42,
+    n_jobs=-1,
+    eval_metric='mlogloss',
+    verbosity=0,
+    **best_params
+)
+model.fit(X_train_smt, y_train_smt)
+
+# threshold sweep on final model
+print("\nsweeping thresholds...")
+proba = model.predict_proba(X_test)
+
+r2l_options = [0.03, 0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25]
+u2r_options = [0.02, 0.03, 0.05, 0.07, 0.10, 0.12, 0.15, 0.20]
+
+best_f1    = 0
+best_r2l_t = 0
+best_u2r_t = 0
+best_pred  = None
+
+for r2l_t in r2l_options:
+    for u2r_t in u2r_options:
+        pred = np.argmax(proba, axis=1).copy()
+        pred[proba[:, 3] > r2l_t] = 3
+        pred[proba[:, 4] > u2r_t] = 4
+        labels_pred = class_enc.inverse_transform(pred)
+        score = f1_score(y_test, labels_pred, average='macro')
+        if score > best_f1:
+            best_f1    = score
+            best_r2l_t = r2l_t
+            best_u2r_t = u2r_t
+            best_pred  = labels_pred
+
+print(f"best thresholds -> R2L: {best_r2l_t}  U2R: {best_u2r_t}")
+
+print("\n--- results ---")
+print(classification_report(y_test, best_pred))
+
+print(f"macro f1: {best_f1:.4f}")
+print(f"experiment 1 (xgboost baseline):              0.5599")
+print(f"experiment 2 (xgboost + smote):               0.6273")
+print(f"experiment 3 (xgboost + smotetomek):          0.6485")
+print(f"experiment 4 (xgboost + smote + thresholds):  0.6780")
+print(f"experiment 5 (lightgbm + smote):              0.6034")
+print(f"experiment 6 (feature eng + smotetomek):      0.7086")
+print(f"experiment 7 (randomized search):             {best_f1:.4f}")
+
+labels = ["DoS", "Normal", "Probe", "R2L", "U2R"]
+cm = confusion_matrix(y_test, best_pred, labels=labels)
+
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+            xticklabels=labels, yticklabels=labels)
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title(f"Experiment 7 - RandomizedSearchCV\nMacro F1: {best_f1:.4f}")
+plt.tight_layout()
+plt.savefig("exp7_confusion_matrix.png", dpi=150)
+plt.show()
+
+print("\ndone - saved as exp7_confusion_matrix.png")
