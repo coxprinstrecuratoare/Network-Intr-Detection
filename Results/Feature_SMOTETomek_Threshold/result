@@ -1,0 +1,62 @@
+loading data...
+adding new features...
+features before: 40  after: 45
+
+running correlation analysis...
+dropping 7 highly correlated features: ['num_root', 'srv_serror_rate', 'srv_rerror_rate', 'dst_host_serror_rate', 'dst_host_srv_serror_rate', 'dst_host_srv_rerror_rate', 'bytes_ratio']
+features remaining: 38
+
+getting feature importances...
+
+top 10 features:
+total_error_rate               0.177738
+total_bytes                    0.160615
+wrong_fragment                 0.081535
+hot                            0.065701
+dst_host_diff_srv_rate         0.055682
+protocol_type                  0.051562
+logged_in                      0.049833
+num_failed_logins              0.043742
+count                          0.040255
+dst_host_same_src_port_rate    0.034407
+dtype: float32
+
+dropping 4 low importance features: ['srv_diff_host_rate', 'is_host_login', 'urgent', 'su_attempted']
+features remaining: 34
+saved: exp6_feature_importance.png
+
+applying SMOTETomek...
+class distribution after SMOTETomek:
+  DoS: 67333
+  Normal: 67265
+  Probe: 67318
+  R2L: 67284
+  U2R: 67327
+
+training model...
+
+sweeping thresholds...
+best thresholds -> R2L: 0.03  U2R: 0.02
+
+--- results ---
+              precision    recall  f1-score   support
+
+         DoS       0.96      0.78      0.86      7460
+      Normal       0.71      0.97      0.82      9711
+       Probe       0.86      0.80      0.83      2421
+         R2L       0.98      0.29      0.45      2885
+         U2R       0.55      0.61      0.58        67
+
+    accuracy                           0.80     22544
+   macro avg       0.81      0.69      0.71     22544
+weighted avg       0.84      0.80      0.79     22544
+
+macro f1: 0.7086
+experiment 1 (xgboost baseline):              0.5599
+experiment 2 (xgboost + smote):               0.6273
+experiment 3 (xgboost + smotetomek):          0.6485
+experiment 4 (xgboost + smote + thresholds):  0.6780
+experiment 5 (lightgbm + smote):              0.6034
+experiment 6 (feature eng + smotetomek):      0.7086
+
+done - saved as exp6_confusion_matrix.png
