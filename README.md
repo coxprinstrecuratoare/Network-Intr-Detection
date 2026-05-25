@@ -18,8 +18,8 @@ NSL-KDD dataset loaded directly from GitHub — no manual download needed.
 | 3 | XGBoost + SMOTETomek | 0.6485 |
 | 4 | XGBoost + SMOTE + Threshold Tuning | 0.6743 |
 | 5 | LightGBM + SMOTE | 0.6034 |
-| 6 | Feature Engineering + SMOTETomek + Threshold Tuning | TBD |
-| 7 | RandomizedSearchCV + Feature Engineering | TBD |
+| 6 | Feature Engineering + SMOTETomek + Threshold Tuning | 0.6698 |
+| 7 | RandomizedSearchCV + Feature Engineering | 0.6053 |
 
 ## How to Run
 
