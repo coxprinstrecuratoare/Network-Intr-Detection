@@ -46,12 +46,15 @@ SMOTE, SMOTETomek, class weights, and threshold tuning.
 ### Random Forest Track
 
 | Experiment | Approach | Macro F1 |
-|---|---|---|
+|---|---|---:|
 | RF baseline | Default Random Forest | 0.4911 |
-| RF balanced | Random oversampling | 0.5700 |
-| RF tuned | Tuned Random Forest + class_weight balanced | 0.5900 |
-| RF best | Balanced Random Forest (500 trees) | 0.6053 |
-| RF SMOTENC | Random Forest + SMOTENC | 0.5800 |
+| RF balanced | Random Forest with `class_weight='balanced'` | 0.4760 |
+| RF tuned balanced | Tuned Random Forest with `class_weight='balanced'` | 0.4915 |
+| RF random oversampling | Random oversampling + Random Forest | 0.4934 |
+| RF SMOTENC | SMOTENC + Random Forest | 0.5386 |
+| RF balanced forest | Balanced Random Forest | 0.5987 |
+| RF best | Balanced Random Forest, 500 trees | **0.6053** |
+| RF regularized | Regularized Balanced Random Forest | 0.5877 |
 
 ---
 
