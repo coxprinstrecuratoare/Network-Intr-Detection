@@ -23,7 +23,3 @@ training model...
 weighted avg       0.84      0.79      0.76     22544
 
 macro f1: 0.6273
-experiment 1 was: 0.5599
-difference: +0.0674
-
-done - saved as exp2_confusion_matrix.png
