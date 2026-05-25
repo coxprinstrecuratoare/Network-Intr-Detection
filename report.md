@@ -117,6 +117,7 @@ U2R               0.58      0.49      0.53
 macro avg         0.82      0.65      0.68
 
 
+**Final accuracy: 0.7901**  
 **Final macro F1: 0.6752**
 
 ---
