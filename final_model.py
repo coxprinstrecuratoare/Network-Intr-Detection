@@ -190,7 +190,7 @@ plt.ylabel("Actual")
 plt.title(f"Final Model - XGBoost + Feature Engineering + SMOTETomek\n"
           f"Macro F1: {f1_score(y_test, y_pred, average='macro'):.4f}")
 plt.tight_layout()
-plt.savefig("final_confusion_matrix.png", dpi=150)
+plt.savefig("Results/final_confusion_matrix.png", dpi=150)
 plt.show()
 
 print("\ndone - saved as final_confusion_matrix.png")
