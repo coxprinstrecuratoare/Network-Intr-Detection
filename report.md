@@ -125,7 +125,7 @@ macro avg         0.82      0.65      0.68
 
 | Metric | Score |
 |---|---|
-| 5-fold CV macro F1 | 0.9426 ± 0.0207 |
+| 5-fold CV macro F1 | 0.9426  |
 | Test macro F1 | 0.6752 |
 | Gap | 0.2674 |
 
