@@ -16,19 +16,22 @@ scored 0.47.
 
 ---
 
-## 2. Our Approach
+## 2. Approaches Tried
 
-We focused on two tracks:
-- **Our track (XGBoost/LightGBM)** — gradient boosting with various
-  imbalance handling techniques
-- **Colleague's track (Random Forest)** — ensemble methods with
+We explored two main algorithm families across multiple experiments:
+- **Gradient Boosting (XGBoost and LightGBM)** — sequential tree-based
+  models that focus on correcting previous errors
+- **Random Forest** — ensemble of independent decision trees with
   class balancing
+
+Both tracks used various imbalance handling techniques from the assignment:
+SMOTE, SMOTETomek, class weights, and threshold tuning.
 
 ---
 
 ## 3. Experiments
 
-### XGBoost / LightGBM Track
+### Gradient Boosting Track
 
 | Experiment | Approach | Macro F1 |
 |---|---|---|
@@ -40,12 +43,15 @@ We focused on two tracks:
 | 6 | XGBoost + feature engineering + SMOTETomek + thresholds | **0.6752** |
 | 7 | XGBoost + RandomizedSearchCV + feature engineering | 0.6698 |
 
-### Random Forest Track (colleague)
+### Random Forest Track
 
 | Experiment | Approach | Macro F1 |
 |---|---|---|
 | RF baseline | Default Random Forest | 0.4911 |
-| Best RF | Balanced Random Forest (500 trees) | 0.6053 |
+| RF balanced | Random oversampling | 0.5700 |
+| RF tuned | Tuned Random Forest + class_weight balanced | 0.5900 |
+| RF best | Balanced Random Forest (500 trees) | 0.6053 |
+| RF SMOTENC | Random Forest + SMOTENC | 0.5800 |
 
 ---
 
@@ -63,16 +69,23 @@ We focused on two tracks:
   features were total_bytes (src + dst bytes) and total_error_rate
   (sum of all error rates). Correlation analysis removed 7 redundant
   features and importance-based selection removed 4 more.
+- Balanced Random Forest improved the rare classes clearly compared
+  to default Random Forest — R2L F1 went from 0.03 to 0.36 and
+  U2R F1 from 0.06 to 0.33.
 
 **What did not work:**
 - Custom class weights (R2L x15, U2R x50) performed worse than
   automatic balancing — the manually chosen values were not better
   than letting the algorithm decide.
-- LightGBM (0.6034) was consistently worse than XGBoost on this dataset.
+- LightGBM (0.6034) was consistently worse than XGBoost on this dataset
+  despite being generally faster.
 - RandomizedSearchCV found hyperparameters that scored very high on
   cross-validation (CV F1: 0.9997) but generalised worse to the test
-  set (0.6698) compared to our default parameters (0.6752). The default
+  set (0.6698) compared to default parameters (0.6752). The default
   XGBoost settings were already well suited to this problem.
+- Random Forest as an algorithm was outperformed by XGBoost across
+  all comparable experiments. The best RF result (0.6053) was below
+  most XGBoost results.
 
 ---
 
@@ -92,14 +105,14 @@ Steps:
 
 Final classification report:
 
-              precision    recall  f1-score
-
+                  precision    recall  f1-score
 DoS               0.96      0.78      0.86
 Normal            0.69      0.97      0.81
 Probe             0.87      0.80      0.84
 R2L               0.99      0.20      0.34
 U2R               0.58      0.49      0.53
 macro avg         0.82      0.65      0.68
+
 
 **Final macro F1: 0.6752**
 
