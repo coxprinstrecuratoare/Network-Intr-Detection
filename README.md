@@ -5,7 +5,7 @@ Normal, DoS, Probe, R2L and U2R using the NSL-KDD dataset.
 
 ## Dataset
 
-NSL-KDD dataset loaded directly from GitHub — no manual download needed.
+NSL-KDD dataset loaded directly from GitHub - no manual download needed.
 - Training set: 125,973 records
 - Test set: 22,544 records
 
