@@ -1,8 +1,5 @@
 # Network Intrusion Detection - Experiment 1
-# Baseline XGBoost, no imbalance handling
-
-
-
+# Baseline XGBoost
 
 
 import numpy as np
