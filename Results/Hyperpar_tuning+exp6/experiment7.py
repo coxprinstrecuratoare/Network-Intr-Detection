@@ -1,9 +1,5 @@
-# Network Intrusion Detection - Experiment 7
-# RandomizedSearchCV for hyperparameter tuning
-# instead of manually guessing max_depth=6 and learning_rate=0.1
-# we let the algorithm try random combinations and pick the best
-# we use the same feature engineering and SMOTETomek from exp6
-# since that gave us the best result so far
+# Network Intrusion Detection - Experiment 7 (corrected)
+# RandomizedSearchCV + Feature Engineering + SMOTETomek + Threshold Tuning
 
 import numpy as np
 import pandas as pd
@@ -11,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, f1_score, confusion_matrix
-from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold
 from xgboost import XGBClassifier
 from imblearn.combine import SMOTETomek
 
@@ -67,14 +63,14 @@ train_len = len(df_train)
 df_train_p = df_full.iloc[:train_len].copy()
 df_test_p  = df_full.iloc[train_len:].copy()
 
-X_train = df_train_p.drop(columns=['category'])
-y_train = df_train_p['category']
-X_test  = df_test_p.drop(columns=['category'])
-y_test  = df_test_p['category']
+X_train_full = df_train_p.drop(columns=['category'])
+y_train_full = df_train_p['category']
+X_test       = df_test_p.drop(columns=['category'])
+y_test       = df_test_p['category']
 
 class_enc = LabelEncoder()
-y_train_enc = class_enc.fit_transform(y_train)
-y_test_enc  = class_enc.transform(y_test)
+y_train_full_enc = class_enc.fit_transform(y_train_full)
+y_test_enc       = class_enc.transform(y_test)
 
 # same feature engineering as experiment 6
 def add_features(df):
@@ -88,20 +84,20 @@ def add_features(df):
     return df
 
 print("adding features...")
-X_train = add_features(X_train)
-X_test  = add_features(X_test)
+X_train_full = add_features(X_train_full)
+X_test       = add_features(X_test)
 
-# same correlation drop as experiment 6
-corr_matrix = X_train.corr().abs()
+# correlation drop on training data only
+corr_matrix = X_train_full.corr().abs()
 upper = corr_matrix.where(
     np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
 )
 to_drop_corr = [col for col in upper.columns if any(upper[col] > 0.95)]
-X_train = X_train.drop(columns=to_drop_corr)
-X_test  = X_test.drop(columns=to_drop_corr)
-print(f"after correlation drop: {X_train.shape[1]} features")
+X_train_full = X_train_full.drop(columns=to_drop_corr)
+X_test       = X_test.drop(columns=to_drop_corr)
+print(f"after correlation drop: {X_train_full.shape[1]} features")
 
-# same importance drop as experiment 6
+# feature importance drop on training data only
 quick_model = XGBClassifier(
     n_estimators=100,
     max_depth=6,
@@ -110,29 +106,42 @@ quick_model = XGBClassifier(
     eval_metric='mlogloss',
     verbosity=0
 )
-quick_model.fit(X_train, y_train_enc)
+quick_model.fit(X_train_full, y_train_full_enc)
 importances = pd.Series(
     quick_model.feature_importances_,
-    index=X_train.columns
+    index=X_train_full.columns
 )
 threshold   = importances.quantile(0.10)
 to_drop_imp = importances[importances <= threshold].index.tolist()
-X_train = X_train.drop(columns=to_drop_imp)
-X_test  = X_test.drop(columns=to_drop_imp)
-print(f"after importance drop: {X_train.shape[1]} features")
+X_train_full = X_train_full.drop(columns=to_drop_imp)
+X_test       = X_test.drop(columns=to_drop_imp)
+print(f"after importance drop: {X_train_full.shape[1]} features")
 
-# SMOTETomek on the cleaned feature set
-print("\napplying SMOTETomek...")
+# split into train and validation
+# test set not touched until the very end
+print("\nsplitting into train and validation...")
+X_tr, X_val, y_tr, y_val = train_test_split(
+    X_train_full, y_train_full_enc,
+    test_size=0.2,
+    stratify=y_train_full_enc,
+    random_state=42
+)
+print(f"train: {X_tr.shape[0]}  validation: {X_val.shape[0]}")
+
+# SMOTETomek on training split only
+print("\napplying SMOTETomek on training split only...")
 smt = SMOTETomek(random_state=42)
-X_train_smt, y_train_smt = smt.fit_resample(X_train, y_train_enc)
-print("done")
+X_tr_smt, y_tr_smt = smt.fit_resample(X_tr, y_tr)
 
-# randomized search
-# we define a range of values for each parameter
-# it picks 15 random combinations and finds which scores best
-# uses cross validation so the test set is never touched
-print("\nrunning RandomizedSearchCV (this takes 10-15 minutes)...")
-print("you will see [CV 1/3] progress printed below")
+print("class distribution after SMOTETomek:")
+unique, counts = np.unique(y_tr_smt, return_counts=True)
+for name, cnt in zip(class_enc.classes_, counts):
+    print(f"  {name}: {cnt}")
+
+# randomized search on training split only
+# validation and test not touched here
+print("\nrunning RandomizedSearchCV (10-15 minutes)...")
+print("progress will print below as [CV 1/3] etc")
 
 param_dist = {
     'max_depth':        [4, 5, 6, 7, 8],
@@ -164,75 +173,74 @@ search = RandomizedSearchCV(
     verbose=2
 )
 
-search.fit(X_train_smt, y_train_smt)
+search.fit(X_tr_smt, y_tr_smt)
 
 print("\nbest parameters found:")
 for param, value in search.best_params_.items():
     print(f"  {param}: {value}")
-print(f"\nbest CV macro f1: {search.best_score_:.4f}")
+print(f"best CV macro f1: {search.best_score_:.4f}")
 
-# train final model with the best parameters found
+# retrain with best params on full training split
 print("\ntraining final model with best parameters...")
-best_params = search.best_params_
-
 model = XGBClassifier(
     n_estimators=300,
     random_state=42,
     n_jobs=-1,
     eval_metric='mlogloss',
     verbosity=0,
-    **best_params
+    **search.best_params_
 )
-model.fit(X_train_smt, y_train_smt)
+model.fit(X_tr_smt, y_tr_smt)
 
-# threshold sweep on final model
-print("\nsweeping thresholds...")
-proba = model.predict_proba(X_test)
+# threshold sweep on validation only
+print("\nsweeping thresholds on validation set...")
+proba_val = model.predict_proba(X_val)
 
 r2l_options = [0.03, 0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25]
 u2r_options = [0.02, 0.03, 0.05, 0.07, 0.10, 0.12, 0.15, 0.20]
 
-best_f1    = 0
-best_r2l_t = 0
-best_u2r_t = 0
-best_pred  = None
+best_val_f1 = 0
+best_r2l_t  = 0
+best_u2r_t  = 0
 
 for r2l_t in r2l_options:
     for u2r_t in u2r_options:
-        pred = np.argmax(proba, axis=1).copy()
-        pred[proba[:, 3] > r2l_t] = 3
-        pred[proba[:, 4] > u2r_t] = 4
-        labels_pred = class_enc.inverse_transform(pred)
-        score = f1_score(y_test, labels_pred, average='macro')
-        if score > best_f1:
-            best_f1    = score
-            best_r2l_t = r2l_t
-            best_u2r_t = u2r_t
-            best_pred  = labels_pred
+        pred = np.argmax(proba_val, axis=1).copy()
+        pred[proba_val[:, 3] > r2l_t] = 3
+        pred[proba_val[:, 4] > u2r_t] = 4
+        score = f1_score(y_val, pred, average='macro')
+        if score > best_val_f1:
+            best_val_f1 = score
+            best_r2l_t  = r2l_t
+            best_u2r_t  = u2r_t
 
-print(f"best thresholds -> R2L: {best_r2l_t}  U2R: {best_u2r_t}")
+print(f"best thresholds from validation -> R2L: {best_r2l_t}  U2R: {best_u2r_t}")
+print(f"validation macro f1: {best_val_f1:.4f}")
+
+# test set touched here for the first and only time
+print("\napplying thresholds to test set (first and only time)...")
+proba_test = model.predict_proba(X_test)
+
+pred_test = np.argmax(proba_test, axis=1).copy()
+pred_test[proba_test[:, 3] > best_r2l_t] = 3
+pred_test[proba_test[:, 4] > best_u2r_t] = 4
+y_pred = class_enc.inverse_transform(pred_test)
 
 print("\n--- results ---")
-print(classification_report(y_test, best_pred))
+print(classification_report(y_test, y_pred))
 
-print(f"macro f1: {best_f1:.4f}")
-print(f"experiment 1 (xgboost baseline):              0.5599")
-print(f"experiment 2 (xgboost + smote):               0.6273")
-print(f"experiment 3 (xgboost + smotetomek):          0.6485")
-print(f"experiment 4 (xgboost + smote + thresholds):  0.6780")
-print(f"experiment 5 (lightgbm + smote):              0.6034")
-print(f"experiment 6 (feature eng + smotetomek):      0.7086")
-print(f"experiment 7 (randomized search):             {best_f1:.4f}")
+score = f1_score(y_test, y_pred, average='macro')
+print(f"macro f1: {score:.4f}")
 
 labels = ["DoS", "Normal", "Probe", "R2L", "U2R"]
-cm = confusion_matrix(y_test, best_pred, labels=labels)
+cm = confusion_matrix(y_test, y_pred, labels=labels)
 
 plt.figure(figsize=(8, 6))
 sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
             xticklabels=labels, yticklabels=labels)
 plt.xlabel("Predicted")
 plt.ylabel("Actual")
-plt.title(f"Experiment 7 - RandomizedSearchCV\nMacro F1: {best_f1:.4f}")
+plt.title(f"Experiment 7 - RandomizedSearchCV\nMacro F1: {score:.4f}")
 plt.tight_layout()
 plt.savefig("exp7_confusion_matrix.png", dpi=150)
 plt.show()
