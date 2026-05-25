@@ -1,9 +1,6 @@
 # Network Intrusion Detection - Experiment 5
 # LightGBM + SMOTE
 # trying LightGBM as an alternative to XGBoost
-# both are gradient boosting but LightGBM uses a different
-# tree growing strategy that is generally faster
-# LightGBM also has a built in class_weight parameter
 # so we can compare it against XGBoost with SMOTE
 
 import numpy as np
