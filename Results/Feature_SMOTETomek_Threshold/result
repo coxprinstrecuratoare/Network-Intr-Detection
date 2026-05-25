@@ -1,12 +1,12 @@
 loading data...
-adding new features...
-features before: 40  after: 45
+adding features...
+features after engineering: 45
 
-running correlation analysis...
-dropping 7 highly correlated features: ['num_root', 'srv_serror_rate', 'srv_rerror_rate', 'dst_host_serror_rate', 'dst_host_srv_serror_rate', 'dst_host_srv_rerror_rate', 'bytes_ratio']
+running correlation analysis on training data...
+dropping 7 correlated features: ['num_root', 'srv_serror_rate', 'srv_rerror_rate', 'dst_host_serror_rate', 'dst_host_srv_serror_rate', 'dst_host_srv_rerror_rate', 'bytes_ratio']
 features remaining: 38
 
-getting feature importances...
+getting feature importances from training data...
 
 top 10 features:
 total_error_rate               0.177738
@@ -25,38 +25,42 @@ dropping 4 low importance features: ['srv_diff_host_rate', 'is_host_login', 'urg
 features remaining: 34
 saved: exp6_feature_importance.png
 
-applying SMOTETomek...
+splitting training data into train and validation...
+train size: 100778  validation size: 25195
+
+applying SMOTETomek on training split only...
 class distribution after SMOTETomek:
-  DoS: 67333
-  Normal: 67265
-  Probe: 67318
-  R2L: 67284
-  U2R: 67327
+  DoS: 53858
+  Normal: 53816
+  Probe: 53848
+  R2L: 53826
+  U2R: 53856
 
 training model...
 
-sweeping thresholds...
-best thresholds -> R2L: 0.03  U2R: 0.02
+sweeping thresholds on validation set...
+best thresholds from validation -> R2L: 0.25  U2R: 0.07
+validation macro f1: 0.9802
+
+applying thresholds to test set (first and only time)...
 
 --- results ---
               precision    recall  f1-score   support
 
          DoS       0.96      0.78      0.86      7460
-      Normal       0.71      0.97      0.82      9711
-       Probe       0.86      0.80      0.83      2421
-         R2L       0.98      0.29      0.45      2885
-         U2R       0.55      0.61      0.58        67
+      Normal       0.69      0.97      0.81      9711
+       Probe       0.87      0.80      0.84      2421
+         R2L       0.99      0.20      0.34      2885
+         U2R       0.58      0.49      0.53        67
 
-    accuracy                           0.80     22544
-   macro avg       0.81      0.69      0.71     22544
-weighted avg       0.84      0.80      0.79     22544
+    accuracy                           0.79     22544
+   macro avg       0.82      0.65      0.68     22544
+weighted avg       0.84      0.79      0.77     22544
 
-macro f1: 0.7086
+macro f1: 0.6752
 experiment 1 (xgboost baseline):              0.5599
 experiment 2 (xgboost + smote):               0.6273
 experiment 3 (xgboost + smotetomek):          0.6485
-experiment 4 (xgboost + smote + thresholds):  0.6780
+experiment 4 (smote + thresholds):            0.6743
 experiment 5 (lightgbm + smote):              0.6034
-experiment 6 (feature eng + smotetomek):      0.7086
-
-done - saved as exp6_confusion_matrix.png
+experiment 6 (feature eng + thresholds):      0.6752
