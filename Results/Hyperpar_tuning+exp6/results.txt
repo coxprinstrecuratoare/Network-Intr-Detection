@@ -1,0 +1,49 @@
+loading data...
+adding features...
+after correlation drop: 38 features
+after importance drop: 34 features
+
+splitting into train and validation...
+train: 100778  validation: 25195
+
+applying SMOTETomek on training split only...
+class distribution after SMOTETomek:
+  DoS: 53858
+  Normal: 53816
+  Probe: 53848
+  R2L: 53826
+  U2R: 53856
+
+running RandomizedSearchCV (10-15 minutes)...
+
+best parameters found:
+  subsample: 0.75
+  min_child_weight: 2
+  max_depth: 5
+  learning_rate: 0.15
+  gamma: 0
+  colsample_bytree: 0.8
+best CV macro f1: 0.9997
+
+training final model with best parameters...
+
+sweeping thresholds on validation set...
+best thresholds from validation -> R2L: 0.18  U2R: 0.1
+validation macro f1: 0.9792
+
+applying thresholds to test set (first and only time)...
+
+--- results ---
+              precision    recall  f1-score   support
+
+         DoS       0.96      0.79      0.86      7460
+      Normal       0.69      0.97      0.81      9711
+       Probe       0.88      0.80      0.84      2421
+         R2L       0.99      0.22      0.36      2885
+         U2R       0.57      0.42      0.48        67
+
+    accuracy                           0.79     22544
+   macro avg       0.82      0.64      0.67     22544
+weighted avg       0.84      0.79      0.77     22544
+
+macro f1: 0.6698
