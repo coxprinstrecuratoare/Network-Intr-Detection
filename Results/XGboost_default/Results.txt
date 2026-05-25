@@ -23,6 +23,3 @@ training model...
 weighted avg       0.83      0.78      0.74     22544
 
 macro f1 score: 0.5599
-(baseline random forest from assignment was 0.47)
-
-done - confusion matrix saved as exp1_confusion_matrix.png
