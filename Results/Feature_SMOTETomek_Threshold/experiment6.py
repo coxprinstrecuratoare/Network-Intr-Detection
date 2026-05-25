@@ -1,9 +1,7 @@
-# Network Intrusion Detection - Experiment 6
+# Network Intrusion Detection - Experiment 6 (corrected)
 # Feature Engineering + SMOTETomek + Threshold Tuning
-# the idea is that the raw features might not be enough
-# creating new features from combinations of existing ones
-# could help the model spot R2L and U2R patterns better
-# we also drop features that are redundant or useless
+# thresholds tuned on validation split only
+# test set touched once at the very end
 
 import numpy as np
 import pandas as pd
@@ -11,6 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, f1_score, confusion_matrix
+from sklearn.model_selection import train_test_split
 from xgboost import XGBClassifier
 from imblearn.combine import SMOTETomek
 
@@ -66,19 +65,18 @@ train_len = len(df_train)
 df_train_p = df_full.iloc[:train_len].copy()
 df_test_p  = df_full.iloc[train_len:].copy()
 
-X_train = df_train_p.drop(columns=['category'])
-y_train = df_train_p['category']
-X_test  = df_test_p.drop(columns=['category'])
-y_test  = df_test_p['category']
+X_train_full = df_train_p.drop(columns=['category'])
+y_train_full = df_train_p['category']
+X_test       = df_test_p.drop(columns=['category'])
+y_test       = df_test_p['category']
 
 class_enc = LabelEncoder()
-y_train_enc = class_enc.fit_transform(y_train)
-y_test_enc  = class_enc.transform(y_test)
+y_train_full_enc = class_enc.fit_transform(y_train_full)
+y_test_enc       = class_enc.transform(y_test)
 
-# --- feature engineering ---
-# creating new features from existing ones
-# ratio of outgoing to incoming bytes - unusual in R2L attacks
-# adding 1 to avoid division by zero
+# feature engineering on full train and test
+# we do this before splitting so both splits get same features
+# test set features are computed but not looked at until the end
 def add_features(df):
     df = df.copy()
     df['bytes_ratio']      = df['src_bytes'] / (df['dst_bytes'] + 1)
@@ -89,30 +87,28 @@ def add_features(df):
     df['srv_rate_diff']    = df['same_srv_rate'] - df['diff_srv_rate']
     return df
 
-print("adding new features...")
-X_train = add_features(X_train)
-X_test  = add_features(X_test)
-print(f"features before: 40  after: {X_train.shape[1]}")
+print("adding features...")
+X_train_full = add_features(X_train_full)
+X_test       = add_features(X_test)
+print(f"features after engineering: {X_train_full.shape[1]}")
 
-# --- correlation analysis ---
-# if two features are almost identical one of them is useless
-# we drop one from each pair with correlation above 0.95
-print("\nrunning correlation analysis...")
-corr_matrix = X_train.corr().abs()
+# correlation analysis on training data only
+# we use the same columns to drop from test set
+print("\nrunning correlation analysis on training data...")
+corr_matrix = X_train_full.corr().abs()
 upper = corr_matrix.where(
     np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
 )
-to_drop = [col for col in upper.columns if any(upper[col] > 0.95)]
-print(f"dropping {len(to_drop)} highly correlated features: {to_drop}")
+to_drop_corr = [col for col in upper.columns if any(upper[col] > 0.95)]
+print(f"dropping {len(to_drop_corr)} correlated features: {to_drop_corr}")
 
-X_train = X_train.drop(columns=to_drop)
-X_test  = X_test.drop(columns=to_drop)
-print(f"features remaining: {X_train.shape[1]}")
+X_train_full = X_train_full.drop(columns=to_drop_corr)
+X_test       = X_test.drop(columns=to_drop_corr)
+print(f"features remaining: {X_train_full.shape[1]}")
 
-# --- feature importance ---
-# train a quick small model just to see which features matter
-# then drop the ones with near zero importance
-print("\ngetting feature importances...")
+# feature importance on training data only
+# drop same columns from test set
+print("\ngetting feature importances from training data...")
 quick_model = XGBClassifier(
     n_estimators=100,
     max_depth=6,
@@ -121,26 +117,25 @@ quick_model = XGBClassifier(
     eval_metric='mlogloss',
     verbosity=0
 )
-quick_model.fit(X_train, y_train_enc)
+quick_model.fit(X_train_full, y_train_full_enc)
 
 importances = pd.Series(
     quick_model.feature_importances_,
-    index=X_train.columns
+    index=X_train_full.columns
 ).sort_values(ascending=False)
 
 print("\ntop 10 features:")
 print(importances.head(10))
 
-# drop bottom 10% features
-threshold  = importances.quantile(0.10)
+threshold   = importances.quantile(0.10)
 to_drop_imp = importances[importances <= threshold].index.tolist()
 print(f"\ndropping {len(to_drop_imp)} low importance features: {to_drop_imp}")
 
-X_train = X_train.drop(columns=to_drop_imp)
-X_test  = X_test.drop(columns=to_drop_imp)
-print(f"features remaining: {X_train.shape[1]}")
+X_train_full = X_train_full.drop(columns=to_drop_imp)
+X_test       = X_test.drop(columns=to_drop_imp)
+print(f"features remaining: {X_train_full.shape[1]}")
 
-# plot feature importances
+# save feature importance plot
 plt.figure(figsize=(10, 8))
 importances.head(20).plot(kind='barh')
 plt.title("Top 20 Feature Importances")
@@ -150,17 +145,27 @@ plt.savefig("exp6_feature_importance.png", dpi=150)
 plt.show()
 print("saved: exp6_feature_importance.png")
 
-# --- SMOTETomek on engineered features ---
-print("\napplying SMOTETomek...")
+# split training data into train and validation
+# X_test is not touched until the very end
+print("\nsplitting training data into train and validation...")
+X_tr, X_val, y_tr, y_val = train_test_split(
+    X_train_full, y_train_full_enc,
+    test_size=0.2,
+    stratify=y_train_full_enc,
+    random_state=42
+)
+print(f"train size: {X_tr.shape[0]}  validation size: {X_val.shape[0]}")
+
+# SMOTETomek only on training split
+print("\napplying SMOTETomek on training split only...")
 smt = SMOTETomek(random_state=42)
-X_train_smt, y_train_smt = smt.fit_resample(X_train, y_train_enc)
+X_tr_smt, y_tr_smt = smt.fit_resample(X_tr, y_tr)
 
 print("class distribution after SMOTETomek:")
-unique, counts = np.unique(y_train_smt, return_counts=True)
+unique, counts = np.unique(y_tr_smt, return_counts=True)
 for name, cnt in zip(class_enc.classes_, counts):
     print(f"  {name}: {cnt}")
 
-# --- train model ---
 print("\ntraining model...")
 model = XGBClassifier(
     n_estimators=300,
@@ -173,55 +178,63 @@ model = XGBClassifier(
     eval_metric='mlogloss',
     verbosity=0
 )
-model.fit(X_train_smt, y_train_smt)
+model.fit(X_tr_smt, y_tr_smt)
 
-# --- threshold sweep ---
-print("\nsweeping thresholds...")
-proba = model.predict_proba(X_test)
+# threshold sweep on validation only
+print("\nsweeping thresholds on validation set...")
+proba_val = model.predict_proba(X_val)
 
 r2l_options = [0.03, 0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25]
 u2r_options = [0.02, 0.03, 0.05, 0.07, 0.10, 0.12, 0.15, 0.20]
 
-best_f1    = 0
-best_r2l_t = 0
-best_u2r_t = 0
-best_pred  = None
+best_val_f1 = 0
+best_r2l_t  = 0
+best_u2r_t  = 0
 
 for r2l_t in r2l_options:
     for u2r_t in u2r_options:
-        pred = np.argmax(proba, axis=1).copy()
-        pred[proba[:, 3] > r2l_t] = 3
-        pred[proba[:, 4] > u2r_t] = 4
-        labels_pred = class_enc.inverse_transform(pred)
-        score = f1_score(y_test, labels_pred, average='macro')
-        if score > best_f1:
-            best_f1    = score
-            best_r2l_t = r2l_t
-            best_u2r_t = u2r_t
-            best_pred  = labels_pred
+        pred = np.argmax(proba_val, axis=1).copy()
+        pred[proba_val[:, 3] > r2l_t] = 3
+        pred[proba_val[:, 4] > u2r_t] = 4
+        score = f1_score(y_val, pred, average='macro')
+        if score > best_val_f1:
+            best_val_f1 = score
+            best_r2l_t  = r2l_t
+            best_u2r_t  = u2r_t
 
-print(f"best thresholds -> R2L: {best_r2l_t}  U2R: {best_u2r_t}")
+print(f"best thresholds from validation -> R2L: {best_r2l_t}  U2R: {best_u2r_t}")
+print(f"validation macro f1: {best_val_f1:.4f}")
+
+# test set touched here for the first and only time
+print("\napplying thresholds to test set (first and only time)...")
+proba_test = model.predict_proba(X_test)
+
+pred_test = np.argmax(proba_test, axis=1).copy()
+pred_test[proba_test[:, 3] > best_r2l_t] = 3
+pred_test[proba_test[:, 4] > best_u2r_t] = 4
+y_pred = class_enc.inverse_transform(pred_test)
 
 print("\n--- results ---")
-print(classification_report(y_test, best_pred))
+print(classification_report(y_test, y_pred))
 
-print(f"macro f1: {best_f1:.4f}")
+score = f1_score(y_test, y_pred, average='macro')
+print(f"macro f1: {score:.4f}")
 print(f"experiment 1 (xgboost baseline):              0.5599")
 print(f"experiment 2 (xgboost + smote):               0.6273")
 print(f"experiment 3 (xgboost + smotetomek):          0.6485")
-print(f"experiment 4 (xgboost + smote + thresholds):  0.6780")
+print(f"experiment 4 (smote + thresholds):            0.6743")
 print(f"experiment 5 (lightgbm + smote):              0.6034")
-print(f"experiment 6 (feature eng + smotetomek):      {best_f1:.4f}")
+print(f"experiment 6 (feature eng + thresholds):      {score:.4f}")
 
 labels = ["DoS", "Normal", "Probe", "R2L", "U2R"]
-cm = confusion_matrix(y_test, best_pred, labels=labels)
+cm = confusion_matrix(y_test, y_pred, labels=labels)
 
 plt.figure(figsize=(8, 6))
 sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
             xticklabels=labels, yticklabels=labels)
 plt.xlabel("Predicted")
 plt.ylabel("Actual")
-plt.title(f"Experiment 6 - Feature Engineering + SMOTETomek\nMacro F1: {best_f1:.4f}")
+plt.title(f"Experiment 6 - Feature Engineering + SMOTETomek\nMacro F1: {score:.4f}")
 plt.tight_layout()
 plt.savefig("exp6_confusion_matrix.png", dpi=150)
 plt.show()
