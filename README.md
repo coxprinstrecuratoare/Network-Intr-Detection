@@ -147,7 +147,7 @@ The boosting track includes:
 | XGBoost baseline | Default XGBoost | 0.5599 |
 | XGBoost + SMOTE | XGBoost with SMOTE | 0.6273 |
 | XGBoost + SMOTETomek | XGBoost with SMOTETomek | 0.6485 |
-| XGBoost + SMOTE + thresholds | XGBoost with SMOTE and threshold tuning | 0.6976 |
+| XGBoost + SMOTE + thresholds | XGBoost with SMOTE and threshold tuning | 0.6743 |
 | LightGBM + SMOTE | LightGBM with SMOTE | 0.6034 |
 | Feature engineering + SMOTETomek + thresholds | Final selected model | 0.6752 |
 | RandomizedSearchCV + feature engineering | Additional tuning experiment | 0.6698 |
