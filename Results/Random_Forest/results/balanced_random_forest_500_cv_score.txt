@@ -1,0 +1,2 @@
+Cross-validation macro F1: 0.6751 (+/- 0.0048)
+Test macro F1: 0.6053
