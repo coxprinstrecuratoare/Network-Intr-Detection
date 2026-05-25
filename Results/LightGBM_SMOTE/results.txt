@@ -26,7 +26,6 @@ macro f1: 0.6034
 experiment 1 (xgboost baseline):        0.5599
 experiment 2 (xgboost + smote):         0.6273
 experiment 3 (xgboost + smotetomek):    0.6485
-experiment 4 (xgboost + thresholds):    0.6780
+experiment 4 (xgboost + thresholds):    0.6743
 experiment 5 (lightgbm + smote):        0.6034
 
-done - saved as exp5_confusion_matrix.png
