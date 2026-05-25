@@ -1,10 +1,6 @@
 # Network Intrusion Detection - Experiment 3
 # XGBoost + SMOTETomek
 # SMOTETomek is an improvement over plain SMOTE
-# it creates synthetic minority examples AND removes ambiguous
-# majority examples that sit too close to the class boundary
-# the idea is that cleaning up those border cases helps the model
-# draw clearer lines between Normal and R2L/U2R
 
 import numpy as np
 import pandas as pd
