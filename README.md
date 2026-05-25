@@ -166,7 +166,7 @@ Final KDDTest+ result:
 
 | Metric | Score |
 |---|---:|
-| Accuracy | 0.80 |
+| Accuracy | 0.7901 |
 | Macro F1-score | 0.6752 |
 
 The final confusion matrix is available at:
