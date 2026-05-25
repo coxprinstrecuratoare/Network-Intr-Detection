@@ -1,7 +1,5 @@
 # Network Intrusion Detection - Experiment 6 (corrected)
 # Feature Engineering + SMOTETomek + Threshold Tuning
-# thresholds tuned on validation split only
-# test set touched once at the very end
 
 import numpy as np
 import pandas as pd
