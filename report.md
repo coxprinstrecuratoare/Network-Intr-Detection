@@ -136,7 +136,7 @@ constantly emerge.
 
 ## 7. Confusion Matrix
 
-![Final Confusion Matrix](results/final_confusion_matrix.png)
+![Final Confusion Matrix](Results/final_confusion_matrix.png)
 
 The R2L row shows the main remaining challenge — 2268 out of 2885 R2L
 attacks are still classified as Normal. R2L attacks are particularly
