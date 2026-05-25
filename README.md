@@ -20,7 +20,7 @@ Network-Intr-Detection/
 ├── README.md
 ├── requirements.txt
 ├── report.md
-├── NIDS-[lastname]-[lastname].pdf
+├── NIDS-Konya-Scholz.pdf
 │
 ├── Results/
 │   ├── final_confusion_matrix.png
